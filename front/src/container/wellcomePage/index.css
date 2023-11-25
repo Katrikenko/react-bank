@@ -1,0 +1,60 @@
+.page {
+  margin: 50px auto;
+  max-width: 400px;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 32px;
+  position: relative;
+
+  overflow: hidden;
+
+  /* border: 1px solid #000; */
+}
+
+.page > .background-image {
+  padding-top: 100px;
+
+  background-image: url("/public/img/back.png");
+  background-size: cover;
+  background-repeat: no-repeat;
+
+  background-position: center;
+  height: 70vh;
+
+  border-radius: 0px 0px 32px 32px;
+}
+
+.overlay-image {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translate(35%, -50%);
+  z-index: 1;
+  width: 750px;
+  height: 750px;
+}
+
+.title,
+.undertext {
+  text-align: center;
+  color: #fff;
+  margin: 16px 0;
+  position: relative;
+  z-index: 999;
+}
+
+.title {
+  font-weight: 600;
+  font-size: 40px;
+}
+
+.undertext {
+  font-size: 20px;
+  line-height: 20px;
+}
+
+.button {
+  text-transform: capitalize;
+}

@@ -1,0 +1,19 @@
+.field__icon {
+  display: block;
+  height: 20px;
+  width: 24px;
+
+  background-image: url("/public/svg/password-hide.svg");
+  background-size: cover;
+}
+
+.field__icon.show {
+  background-image: url("/public/svg/password-show.svg");
+}
+
+.field__icon,
+.field__icon.show {
+  position: absolute;
+  right: 16px;
+  top: calc(50% - 10px);
+}

@@ -1,0 +1,9 @@
+#text-button {
+  text-transform: none;
+  padding: 20px 100px;
+}
+
+.form__error {
+  color: #f23152;
+  font-size: 14px;
+}

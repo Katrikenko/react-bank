@@ -1,0 +1,76 @@
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+}
+
+.transaction__section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 20px;
+  gap: 16px;
+}
+
+.transaction__context {
+  display: flex;
+  flex-direction: column;
+  border-radius: 12px;
+  background-color: #fff;
+  width: 100%;
+  max-width: 350px;
+  padding: 16px;
+  margin: 16px;
+}
+
+.transaction__card {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  justify-content: space-between;
+}
+
+.sending-text {
+  color: #000;
+}
+
+.receiving-text {
+  color: #24b277;
+}
+
+.transaction__amount {
+  text-align: center;
+  color: #24b277;
+  font-size: 38px;
+  font-weight: 600;
+}
+
+.small-title {
+  color: #fff;
+  font-size: 16px;
+}
+
+.balance-btn {
+  display: flex;
+  flex-direction: column;
+  text-decoration: none;
+  color: #000;
+}
+
+.balance-btn > span.text {
+  text-align: center;
+}
+
+.header-center {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  align-items: center;
+}
+
+.sending-text {
+  color: #000;
+}
+
+.receiving-text {
+  color: #24b277;
+}

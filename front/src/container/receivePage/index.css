@@ -1,0 +1,29 @@
+.darker-page {
+  background-color: #f5f5f7;
+}
+
+.payment__block {
+  display: grid;
+  grid-template-columns: 40px 1fr 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+
+  cursor: pointer;
+  margin: 12px 0;
+
+  background-color: #fff;
+  border-radius: 12px;
+
+  transition: background-color 0.7s, border 0.7s;
+
+  &:hover {
+    background-color: #cccccc4c;
+    border: 1px solid #775ce5;
+  }
+}
+
+.payment-methods {
+  display: flex;
+  gap: 8px;
+}
