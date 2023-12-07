@@ -39,6 +39,8 @@ const SettingsPage: React.FC = () => {
     password: "",
   });
 
+  const token = authContext.state.token;
+
   const handleEmailChange: React.ChangeEventHandler<HTMLInputElement> = (e) => {
     const { value } = e.target;
     setEmail(value);
@@ -78,51 +80,52 @@ const SettingsPage: React.FC = () => {
 
   const isFormValid = !email && !user.password && !newPassword;
 
-  const handleSavePassword = () => {
-    const getPassword = localStorage.getItem("users");
-    if (getPassword) {
-      const userPassword = getPassword ? JSON.parse(getPassword) : null;
+  const handleSavePassword = async () => {
+    try {
+      const res = await fetch("http://localhost:4000/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          token: token,
+          oldPassword: user.password,
+          newPassword: newPassword,
+        }),
+      });
 
-      if (userPassword) {
-        const currentUser = userPassword.find(
-          (user: User) =>
-            authContext.state.user &&
-            user.password === authContext.state.user.password
-        );
+      const data = await res.json();
 
-        if (currentUser) {
-          currentUser.password = newPassword;
-          const token = currentUser.token;
-
-          if (token) {
-            saveNotification("Warning", "Password Changed", token);
-            localStorage.setItem("users", JSON.stringify(userPassword));
-          }
-        }
+      if (res.ok) {
+        saveNotification("Warning", "Password Changed", token!);
+        console.log(data.message);
+      } else {
+        console.error(data);
       }
+    } catch (err) {
+      console.log(err);
     }
   };
 
-  const handleSaveEmail = () => {
-    const getEmail = localStorage.getItem("users");
-    if (getEmail) {
-      const userEmail = getEmail ? JSON.parse(getEmail) : null;
+  const handleSaveEmail = async () => {
+    try {
+      const res = await fetch("http://localhost:4000/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          token: token,
+          email: email,
+        }),
+      });
 
-      if (userEmail) {
-        const currentUser = userEmail.find(
-          (user: User) =>
-            authContext.state.user &&
-            user.email === authContext.state.user.email
-        );
+      const data = await res.json();
 
-        if (currentUser) {
-          currentUser.email = email;
-          const token = currentUser.token;
-          saveNotification("Warning", "Email Changed", token);
-
-          localStorage.setItem("users", JSON.stringify(userEmail));
-        }
+      if (res.ok) {
+        saveNotification("Warning", "Email Changed", token!);
+        console.log(data.message);
+      } else {
+        console.error(data);
       }
+    } catch (err) {
+      console.log(err);
     }
   };
 

@@ -1,10 +1,4 @@
-import React, {
-  useReducer,
-  createContext,
-  useContext,
-  useRef,
-  useEffect,
-} from "react";
+import React, { useReducer, createContext, useContext, useEffect } from "react";
 import { BrowserRouter, Route, Navigate, Routes } from "react-router-dom";
 import WelcomePage from "./container/wellcomePage";
 import SignupPage from "./container/signup";
@@ -19,6 +13,7 @@ import SettingsPage from "./container/settingsPage";
 import TransactionPage from "./container/transactionPage";
 import NotificationsPage from "./container/notificationsPage";
 import { Notifications } from "./component/notifications";
+import { BalanceState } from "./component/balanceState";
 import Error from "./component/error";
 
 export const Authentication = {
@@ -31,6 +26,7 @@ export const Authentication = {
 };
 
 export type User = {
+  confirmCode: number;
   confirm: boolean;
   email: string;
   password: string;
@@ -60,7 +56,7 @@ interface ChildProps {
 
 const initialArg: State = {
   token: null,
-  user: { confirm: false, email: "", password: "", token: "" },
+  user: { confirm: false, email: "", password: "", token: "", confirmCode: 0 },
   balance: null,
 };
 
@@ -109,30 +105,6 @@ export const authReducer = (state: State, action: Action) => {
   }
 };
 
-const updateToken = (
-  dispatch: React.Dispatch<Action>,
-  token: string | null,
-  users: any[],
-  confirm: boolean
-) => {
-  dispatch({
-    type: Authentication.UPDATE_TOKEN,
-    payload: {
-      token: token !== null ? token : undefined,
-      user: {
-        ...users,
-        confirm: confirm,
-      },
-    },
-  });
-
-  if (token !== null && users !== null) {
-    localStorage.setItem("confirm", confirm ? "true" : "false");
-  } else {
-    localStorage.setItem("confirm", "false");
-  }
-};
-
 export const AuthContext = createContext<{
   state: State;
   dispatch: React.Dispatch<Action>;
@@ -140,21 +112,47 @@ export const AuthContext = createContext<{
 
 export const AuthRoute: React.FC<ChildProps> = ({ children }) => {
   const authContext = useContext(AuthContext);
+  const { dispatch } = authContext;
 
-  if (!authContext) {
-    console.error("AuthRoute - No authContext");
-    return null;
-  }
+  useEffect(() => {
+    const authentification = async () => {
+      if (!authContext) {
+        console.error("AuthRoute - No authContext");
+        return null;
+      }
 
-  if (authContext.state.token) {
-    if (authContext.state.user && authContext.state.user.confirm) {
-      return <>{children}</>;
-    } else {
-      return <Navigate to="/signup-confirm" />;
-    }
-  } else {
-    return <>{children}</>;
-  }
+      if (authContext.state.token) {
+        try {
+          const res = await fetch(`http://localhost:4000/auth`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${authContext.state.token}`,
+            },
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            if (data.confirm) {
+              dispatch({
+                type: Authentication.UPDATE_BALANCE,
+                payload: { balance: data.balance },
+              });
+              return <>{children}</>;
+            } else {
+              return <Navigate to="/signup-confirm" />;
+            }
+          } else {
+            return <Navigate to="/signin" />;
+          }
+        } catch (err) {
+          console.error("Error checking authentication:", err);
+        }
+      }
+    };
+    authentification();
+  }, [authContext, children, dispatch]);
+  return <>{children}</>;
 };
 
 function AuthData() {
@@ -169,47 +167,41 @@ export const PrivateRoute: React.FC<{
   children: React.ReactElement;
 }> = ({ children }) => {
   const authContext = useContext(AuthContext);
-  const tokenLoaded = useRef(false);
+
+  const getUserInfo = async (token: string | null) => {
+    try {
+      const res = await fetch("http://localhost:4000/signup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ token }),
+      });
+
+      if (!res.ok) {
+        throw Error("Failed to fetch user info");
+      }
+
+      const data = await res.json();
+      console.log("User Info:", data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   useEffect(() => {
-    const loadToken = async () => {
-      try {
-        const getUsers = localStorage.getItem("users");
-        const users = getUsers ? JSON.parse(getUsers) : null;
-
-        if (users) {
-          const foundUser = users.find(
-            (user: User) =>
-              authContext.state.user &&
-              user.email === authContext.state.user.email &&
-              user.password === authContext.state.user.password
-          );
-
-          if (foundUser) {
-            const userToken = foundUser.token;
-            const userConfirm = foundUser.confirm;
-
-            updateToken(authContext.dispatch, userToken, users, userConfirm);
-          }
-        }
-        tokenLoaded.current = true;
-      } catch (err) {
-        console.error(err);
-        tokenLoaded.current = true;
-      }
-    };
-
-    loadToken();
-  }, [authContext.state.user, authContext.dispatch]);
+    if (authContext.state.token) {
+      getUserInfo(authContext.state.token);
+    }
+  }, [authContext.state.token]);
 
   if (!authContext) {
     console.error("PrivateRoute - No authContext");
     return null;
   }
 
-  if (!tokenLoaded) {
-    console.error("PrivateRoute - Token not loaded");
-    return null;
+  if (!authContext.state.token) {
+    console.error("PrivateRoute - No token", authContext);
   }
 
   const confirmValue = localStorage.getItem("confirm");
@@ -217,7 +209,7 @@ export const PrivateRoute: React.FC<{
   if (authContext.state.token) {
     if (
       confirmValue === "true" ||
-      (authContext.state.user && authContext.state.user.confirm)
+      (authContext.state.token && authContext.state.user?.confirm)
     ) {
       return <>{children}</>;
     } else {

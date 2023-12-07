@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useContext } from "react";
 import { AuthContext } from "../../App";
 import "./index.css";
+import { Notifications } from "../../component/notifications";
 
 import Back from "../../component/back-button";
 
@@ -18,6 +19,11 @@ enum NotificationsType {
 
 const NotificationsPage: React.FC = () => {
   const [notifications, setNotifications] = useState<NotificationsState[]>([]);
+
+  const [type, setType] = useState<NotificationsType>(
+    NotificationsType.ANNOUNCEMENT
+  );
+  const [message, setMessage] = useState<string>("");
 
   const authContext = useContext(AuthContext);
 
@@ -65,18 +71,38 @@ const NotificationsPage: React.FC = () => {
     // ];
 
     // setNotifications(alertNotifications);
-    const userId = authContext.state.token || "";
 
-    if (userId) {
-      const getNotificationsList = localStorage.getItem(
-        `notificationsList_${userId}`
-      );
-      if (getNotificationsList) {
-        const notificationsList = JSON.parse(getNotificationsList);
-        setNotifications(notificationsList);
+    const getNotificationsList = async () => {
+      try {
+        const token = authContext.state.token;
+
+        const res = await fetch("http://localhost:4000/notifications", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ token }),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.userNotifications) {
+            const notificationsArray = data.userNotifications;
+
+            setNotifications(notificationsArray);
+          } else {
+            console.error("No notifications data found");
+          }
+        } else {
+          console.error("Failed to get notifications");
+        }
+      } catch (err) {
+        console.error(err);
       }
-    }
-  }, [authContext.state.token]);
+    };
+
+    getNotificationsList();
+  }, [authContext.state.token, setNotifications]);
 
   return (
     <div className="page darker-page">
@@ -85,29 +111,31 @@ const NotificationsPage: React.FC = () => {
         <h1 className="title-dark">Notifications</h1>
       </header>
       <main className="notifications__section">
-        {notifications.reverse().map((notification) => (
-          <div
-            key={notification.id + Math.random().toString(16).slice(2)}
-            className="notification__card">
-            <img
-              src={
-                notification.type === NotificationsType.ANNOUNCEMENT
-                  ? "./svg/bell-notification.svg"
-                  : "./svg/danger-notification.svg"
-              }
-              className="card-img"
-              alt="profile"
-            />
-            <div className="card-content">
-              <p className="card__title">{notification.message}</p>
-              <div className="card-subtitle">
-                <span>{timeSince(new Date(notification.time))} ago</span>
-                <img src="./svg/dot.svg" alt="ellipse" />
-                <span>{notification.type}</span>
+        {notifications.reverse().map((notification) => {
+          return (
+            <div
+              key={notification.id + Math.random().toString(16).slice(2)}
+              className="notification__card">
+              <img
+                src={
+                  notification.type === NotificationsType.ANNOUNCEMENT
+                    ? "./svg/bell-notification.svg"
+                    : "./svg/danger-notification.svg"
+                }
+                className="card-img"
+                alt="profile"
+              />
+              <div className="card-content">
+                <p className="card__title">{notification.message}</p>
+                <div className="card-subtitle">
+                  <span>{timeSince(new Date(notification.time))} ago</span>
+                  <img src="./svg/dot.svg" alt="ellipse" />
+                  <span>{notification.type}</span>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </main>
     </div>
   );

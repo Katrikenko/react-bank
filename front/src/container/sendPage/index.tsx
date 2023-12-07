@@ -2,9 +2,9 @@ import React, { useEffect, useState, useContext } from "react";
 import "./index.css";
 import "../../global.css";
 import Back from "../../component/back-button";
-import { BalanceState, Notification } from "../../component/balanceState";
+import { BalanceState, Transaction } from "../../component/balanceState";
 import { useSaveNotification } from "../../component/notifications";
-import { AuthContext, Authentication, User } from "../../App";
+import { AuthContext, Authentication } from "../../App";
 import FieldEmail from "../../component/field-email";
 
 export const REG_EXP_EMAIL = new RegExp(/^[\w-\.]+@([\w-]+\.)+[\w-]{2,}$/);
@@ -17,19 +17,16 @@ const SendPage: React.FC = () => {
     email: "",
   });
   const [amount, setAmount] = useState("0.00");
-
   const [error, setError] = useState({
     email: "",
     amount: "",
   });
-
   const authContext = useContext(AuthContext);
-
-  const userId = authContext.state.token;
+  const token = authContext.state.token;
 
   const [balanceState, setBalanceState] = useState<BalanceState>({
     balance: "0.00",
-    notifications: [],
+    transactions: [],
   });
 
   const [isFormValid, setIsFormValid] = useState(false);
@@ -51,16 +48,30 @@ const SendPage: React.FC = () => {
     clearCode();
   };
 
-  const handleBalanceUpdate = (updatedBalanceValue: string) => {
+  const handleBalanceUpdate = async (updatedBalanceValue: string) => {
     authContext.dispatch({
       type: Authentication.UPDATE_BALANCE,
       payload: {
         balance: updatedBalanceValue,
       },
     });
+    try {
+      const res = await fetch(`http://localhost:4000/balance/${token}`);
+      if (res.ok) {
+        const data = await res.json();
+        setBalanceState({
+          balance: data.balance,
+          transactions: data.transactions,
+        });
+      } else {
+        console.error("Failed to fetch updated balance from the server");
+      }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!REG_EXP_EMAIL.test(recipient.email)) {
       setError({
         ...error,
@@ -71,59 +82,36 @@ const SendPage: React.FC = () => {
 
     const numAmount = parseFloat(amount);
     if (!isNaN(numAmount)) {
-      if (balanceState !== null) {
-        const getBalance = parseFloat(balanceState.balance);
+      if (authContext.state.user) {
+        try {
+          const res = await fetch("http://localhost:4000/send", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              token: token,
+              recipientEmail: recipient.email,
+              amount: numAmount,
+            }),
+          });
 
-        const totalBalance = getBalance - numAmount;
+          if (res.ok) {
+            const data = await res.json();
+            const { balance, notifications } = data;
 
-        const totalBalanceString = totalBalance.toFixed(2);
+            handleBalanceUpdate(balance);
 
-        handleBalanceUpdate(totalBalanceString);
-
-        const currentDate = new Date();
-        const hours = currentDate.getHours();
-        const minutes = currentDate.getMinutes();
-        const currentTime = `${hours}:${minutes}`;
-
-        const sendingData: Notification = {
-          amount: numAmount.toFixed(2).toString(),
-          paymentMethod: recipient.email,
-          paymentTime: currentTime,
-          paymentDate: currentDate.toDateString(),
-          type: "Sending",
-        };
-
-        const updatedBalanceState: BalanceState = {
-          balance: totalBalanceString,
-          notifications: [...balanceState.notifications, sendingData],
-        };
-
-        setBalanceState(updatedBalanceState);
-
-        setRecipient({ email: "" });
-
-        localStorage.setItem(
-          `balanceState_${userId}`,
-          JSON.stringify(updatedBalanceState)
-        );
-
-        const getUsers = localStorage.getItem("users");
-        const users = getUsers ? JSON.parse(getUsers) : null;
-
-        if (users) {
-          const currentUser = users.find(
-            (user: User) =>
-              authContext.state.user &&
-              user.email === authContext.state.user.email &&
-              user.password === authContext.state.user.password
-          );
-
-          if (currentUser) {
-            const token = currentUser.token;
-            saveNotification("Announcement", "Outgoing transfer", token);
-            clearCode();
+            saveNotification("Announcement", "Outgoing transfer", token!);
+            setRecipient({ email: "" });
             setAmount("0.00");
+
+            setIsFormValid(false);
+          } else {
+            console.error("Failed to send amount");
           }
+        } catch (err) {
+          console.error(err);
         }
       }
     } else setError({ ...error, amount: "Please enter a valid amount" });
@@ -132,12 +120,7 @@ const SendPage: React.FC = () => {
 
   useEffect(() => {
     setIsFormValid(recipient.email.length > 0 && parseFloat(amount) > 0);
-
-    const getBalanceState = localStorage.getItem(`balanceState_${userId}`);
-    if (getBalanceState) {
-      setBalanceState(JSON.parse(getBalanceState));
-    }
-  }, [recipient.email, amount, userId]);
+  }, [recipient.email, amount]);
 
   return (
     <div className="page darker-page">
@@ -177,8 +160,7 @@ const SendPage: React.FC = () => {
         <button
           onClick={handleSubmit}
           type="button"
-          className="button button-dark"
-          disabled={!isFormValid}>
+          className="button button-dark">
           Send
         </button>
       </form>

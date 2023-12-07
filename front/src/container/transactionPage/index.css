@@ -45,6 +45,10 @@
   font-weight: 600;
 }
 
+.transaction__amount > .transaction__amount-thin {
+  font-weight: 400;
+}
+
 .small-title {
   color: #fff;
   font-size: 16px;

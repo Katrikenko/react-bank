@@ -1,9 +1,12 @@
 export interface BalanceState {
 	balance: string;
-	notifications: Notification[];
+	transactions: Transaction[];
+
 }
 
-export interface Notification {
+
+
+export interface Transaction {
 	amount: string;
 	paymentMethod: string | null;
 	paymentTime: string;
@@ -12,15 +15,18 @@ export interface Notification {
 	transactionId?: number;
 }
 
+export interface TransactionPageProps {
+	transactionData: Transaction | null;
+	receiptData: Transaction | null;
+	amount: string;
+	type: string;
+  }
 
-const getUser = localStorage.getItem("user");
-const user = getUser ? JSON.parse(getUser) : null;
-const token = user ? user.token : null;
 
 
 export const getBalanceState: BalanceState = {
 	balance: "0.00",
-	notifications: [],
+	transactions: [],
   };
 
 

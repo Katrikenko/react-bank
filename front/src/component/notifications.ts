@@ -13,52 +13,45 @@ export interface Notifications {
 export function useSaveNotification() {
 	const authContext = useContext(AuthContext)!;
 
+	return async function saveNotification(type: string, message: string, userId?: string) {
 
-	return function saveNotification(type: string, message: string, token: string | null, userId?: string) {
-		const getUsers = localStorage.getItem("users");
-			const users = getUsers ? JSON.parse(getUsers) : null;
-
-
-		let currentUserId = users.token || userId || authContext.state.token || "";
+		const token = authContext.state.token || "";
 		
-		const getNotification = localStorage.getItem(`notificationsList_${currentUserId}`); 
-		if(getNotification) {
-			const notifications: Notifications[] = JSON.parse(getNotification) || [];
+		try {
+			const res = await fetch(
+				"http://localhost:4000/getNotifications",
+				{
+				  method: "POST",
+				  headers: {
+					"Content-Type": "application/json",
+				  },
+				  body: JSON.stringify({
+					token,
+					type,
+					message, }),
+			})
+
+		if(res.ok) {
+			const data = await res.json()
+			const notifications: Notifications[] = Array.isArray(data) ? data : [];
 			const newNotifications: Notifications = {
 				id: notifications.length + 1,
 				type: type,
 				message: message, 
 				time: new Date().toString(),
-				userId: currentUserId,
+				userId: token,
 			}
 
-			console.log("Saving notification:", type, message, token, userId);
-	
-			const getUsers = localStorage.getItem("users");
-			const users = getUsers ? JSON.parse(getUsers) : null;
-
-
-			console.log("Current User ID:", currentUserId);
-			console.log("New Notifications:", newNotifications);
-			console.log("Token:", token);
-
-			if(users) {
-				const currentUser = users.find((user: User) => authContext.state.user &&
-				user.email === authContext.state.user.email &&
-				user.password === authContext.state.user.password)
-
-				if(currentUser) {
-					const token = currentUser.token;
-
-					if(token) {
+			if(token) {
 				newNotifications.token = token;
 			}
-				}
-			}
-			
-	
+
+
+
+
 			notifications.push(newNotifications);
-			localStorage.setItem(`notificationsList_${currentUserId}`, JSON.stringify(notifications))
+
+			localStorage.setItem(`notificationsList_${token}`, JSON.stringify(notifications))
 		} else {
 			const newNotification: Notifications[] = [
 				{
@@ -66,7 +59,7 @@ export function useSaveNotification() {
 					type: type,
 					message: message,
 					time: new Date().toString(),
-					userId: currentUserId,
+					userId: token,
 				  },
 			]
 	
@@ -76,7 +69,11 @@ export function useSaveNotification() {
 				  }
 			}
 	
-			localStorage.setItem(`notificationsList_${currentUserId}`, JSON.stringify(newNotification))
+			localStorage.setItem(`notificationsList_${token}`, JSON.stringify(newNotification))
+		}
+		} catch(err) {
+			console.error(err)
 		}
 	}
+
 }

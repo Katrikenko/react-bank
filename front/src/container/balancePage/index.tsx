@@ -1,23 +1,59 @@
 import React, { useEffect, useState, useContext } from "react";
+import { AuthContext, Authentication } from "../../App";
 import { Link } from "react-router-dom";
 import "./index.css";
-import { BalanceState, Notification } from "../../component/balanceState";
-import { AuthContext } from "../../App";
+import { BalanceState, Transaction } from "../../component/balanceState";
 
 const BalancePage: React.FC = () => {
   //==========================================
 
   const [balanceState, setBalanceState] = useState<BalanceState | null>(null);
-
+  const [transactionData, setTransactionData] = useState<Transaction | null>(
+    null
+  );
+  const [receiptData, setReceiptData] = useState<Transaction | null>(null);
   const authContext = useContext(AuthContext);
-  const userId = authContext.state.token;
+  const { token } = authContext.state;
 
   useEffect(() => {
-    const getBalanceState = localStorage.getItem(`balanceState_${userId}`);
-    if (getBalanceState) {
-      setBalanceState(JSON.parse(getBalanceState));
+    const getBalanceState = async () => {
+      try {
+        if (authContext.state && token) {
+          const res = await fetch(`http://localhost:4000/balance/${token}`);
+          const data = await res.json();
+
+          if (res.ok) {
+            authContext.dispatch({
+              type: Authentication.UPDATE_BALANCE,
+              payload: {
+                balance: data.balance,
+                notifications: data.notifications || [],
+              },
+            });
+            setBalanceState({
+              balance: data.balance,
+              transactions: data.transactions || [],
+            });
+            setTransactionData(data.transactionData || null);
+            setReceiptData(data.receiptData || null);
+          } else {
+            console.error(`Did not get balance. Status: ${res.status}`);
+            try {
+              console.error("Error details:", data);
+            } catch (error) {
+              console.error("Failed to parse error response:", error);
+            }
+          }
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    if (!balanceState) {
+      getBalanceState();
     }
-  }, []);
+  }, [token, authContext.state]);
 
   return (
     <div className="page">
@@ -42,7 +78,10 @@ const BalancePage: React.FC = () => {
           </Link>
         </header>
         <p className="balance">
-          $ {balanceState ? balanceState.balance : "0.00"}
+          $ {balanceState?.balance.split(".")[0] || "0"}
+          <span className="balance-thin">
+            .{balanceState?.balance.split(".")[1] || "00"}
+          </span>
         </p>
       </div>
       <section className="center-section">
@@ -67,11 +106,11 @@ const BalancePage: React.FC = () => {
       </section>
       <main className="balance-section">
         {balanceState &&
-          balanceState.notifications &&
-          balanceState.notifications
+          balanceState.transactions &&
+          balanceState.transactions
             .slice()
             .reverse()
-            .map((receipt: Notification, index: number) => (
+            .map((receipt: Transaction, index: number) => (
               <Link
                 to={`/transaction/${index}`}
                 className="card"
@@ -102,7 +141,12 @@ const BalancePage: React.FC = () => {
                       ? "sending-text"
                       : "receiving-text"
                   }`}>
-                  {receipt.type === "Sending" ? "-" : "+"}${receipt.amount}
+                  {receipt.type === "Sending" ? "-" : "+"}$
+                  {receipt.amount.split(".")[0]}
+                  <span className="receipt__amount-thin">
+                    {receipt.amount.split(".")[1] && "."}
+                    {receipt.amount.split(".")[1]}
+                  </span>
                 </p>
               </Link>
             ))}

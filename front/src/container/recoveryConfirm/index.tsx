@@ -1,4 +1,4 @@
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, useEffect } from "react";
 import { User, AuthContext } from "../../App";
 import { useSaveNotification } from "../../component/notifications";
 import { useNavigate } from "react-router-dom";
@@ -23,17 +23,18 @@ const RecoveryConfirmPage: React.FC = () => {
   const navigate = useNavigate();
 
   const authContext = useContext(AuthContext);
-  const userId = authContext.state.token;
+  const token = authContext.state.token || "";
 
   const saveNotification = useSaveNotification();
 
   const [code, setCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
-  const recoveryUserId = sessionStorage.getItem(`recoveryUserId`);
-  const recoveryCode = sessionStorage.getItem(`recoveryCode_${recoveryUserId}`);
 
   const [codeError, setCodeError] = useState("");
   const [passwordError, setPasswordError] = useState("");
+
+  const recoveryCode = sessionStorage.getItem("recoveryCode");
+  const recoveryEmail = sessionStorage.getItem("recoveryEmail");
 
   const handleCodeChange: React.ChangeEventHandler<HTMLInputElement> = (e) => {
     const enteredCode = e.target.value;
@@ -46,6 +47,11 @@ const RecoveryConfirmPage: React.FC = () => {
   ) => {
     const { value } = e.target;
     setNewPassword(value);
+
+    if (!recoveryCode || !recoveryEmail) {
+      console.error("Recovery code or email not found");
+      return;
+    }
 
     if (recoveryCode === code) {
       if (REG_EXP_PASSWORD.test(value)) {
@@ -60,33 +66,34 @@ const RecoveryConfirmPage: React.FC = () => {
 
   const isFormValid = !codeError && !passwordError;
 
-  const handleSubmit = (e: React.FormEvent<HTMLButtonElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLButtonElement>) => {
     e.preventDefault();
 
     if (isFormValid) {
-      const getUsersData = localStorage.getItem("users");
-      const users: User[] = getUsersData ? JSON.parse(getUsersData) : [];
-      if (users !== null) {
-        try {
-          const currentUser = users.find(
-            (user) => user.email === recoveryUserId
-          );
+      try {
+        const res = await fetch("http://localhost:4000/recovery-confirm", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email: recoveryEmail,
+            recoveryCode: code,
+            newPassword: newPassword,
+          }),
+        });
 
-          if (currentUser && recoveryCode === code) {
-            currentUser.password = newPassword;
-            localStorage.setItem("users", JSON.stringify(users));
+        const data = await res.json();
 
-            saveNotification("Warning", "Password Recovery", currentUser.token);
-            alert("Password was updated");
-            navigate("/balance");
-          } else {
-            setCodeError(FIELD_ERROR.CODE);
-          }
-        } catch (err) {
-          console.log(err);
+        if (res.ok) {
+          saveNotification("Warning", "Password Recovery", token);
+          alert("Password was updated");
+          navigate("/balance");
+        } else {
+          setCodeError(FIELD_ERROR.CODE);
         }
-      } else {
-        console.log("User data not found");
+      } catch (err) {
+        console.log(err);
       }
     }
   };

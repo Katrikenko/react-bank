@@ -1,5 +1,6 @@
 import React, { useState, useContext } from "react";
 import { AuthContext } from "../../App";
+import { useNavigate } from "react-router-dom";
 import "./index.css";
 import "../../global.css";
 import Back from "../../component/back-button";
@@ -7,10 +8,6 @@ import Back from "../../component/back-button";
 import FieldEmail from "../../component/field-email";
 
 export const REG_EXP_EMAIL = new RegExp(/^[\w-\.]+@([\w-]+\.)+[\w-]{2,}$/);
-
-const generateCode = () => {
-  return Math.floor(Math.random() * 9000) + 1000;
-};
 
 const FIELD_NAME = {
   EMAIL: "email",
@@ -24,6 +21,7 @@ const FIELD_ERROR = {
 
 const RecoveryPage: React.FC = () => {
   //==============================================
+  const navigate = useNavigate();
   const authContext = useContext(AuthContext);
   const userId = authContext.state.token;
 
@@ -79,25 +77,33 @@ const RecoveryPage: React.FC = () => {
     setIsFormValid(newIsFormValid);
   };
 
-  const handleGetCode = (e: React.FormEvent<HTMLButtonElement>) => {
+  const handleGetCode = async (e: React.FormEvent<HTMLButtonElement>) => {
     e.preventDefault();
 
     const isFormValid = calculateIsFormValid(error);
 
     if (isFormValid) {
       try {
-        const getCode = generateCode();
-        clearForm();
+        const res = await fetch("http://localhost:4000/recovery", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ email: formData[FIELD_NAME.EMAIL] }),
+        });
 
-        const recoveryUserId = formData[FIELD_NAME.EMAIL];
-        sessionStorage.setItem(`recoveryUserId`, recoveryUserId);
-        sessionStorage.setItem(
-          `recoveryCode_${recoveryUserId}`,
-          getCode.toString()
-        );
-        localStorage.setItem("formData", JSON.stringify(formData));
+        const data = await res.json();
 
-        window.location.href = "/recovery-confirm";
+        if (res.ok) {
+          console.log(data.message);
+          const recoveryCode = data.recoveryCode;
+          sessionStorage.setItem("recoveryCode", recoveryCode);
+          sessionStorage.setItem("recoveryEmail", formData[FIELD_NAME.EMAIL]);
+          clearForm();
+          navigate("/recovery-confirm");
+        } else {
+          console.log(data.message);
+        }
       } catch (err) {
         console.log(err);
       }

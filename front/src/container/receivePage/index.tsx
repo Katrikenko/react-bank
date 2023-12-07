@@ -4,7 +4,7 @@ import { AuthContext, Authentication } from "../../App";
 import "./index.css";
 import "../../global.css";
 
-import { BalanceState, Notification } from "../../component/balanceState";
+import { BalanceState, Transaction } from "../../component/balanceState";
 import Back from "../../component/back-button";
 
 const ReceivePage: React.FC = () => {
@@ -15,19 +15,10 @@ const ReceivePage: React.FC = () => {
 
   const [balanceState, setBalanceState] = useState<BalanceState>({
     balance: "0.00",
-    notifications: [],
+    transactions: [],
   });
-
   const authContext = useContext(AuthContext);
-  const userId = authContext.state.token;
-
-  useEffect(() => {
-    const savedBalanceState = localStorage.getItem(`balanceState_${userId}`);
-    if (savedBalanceState) {
-      const parsedBS = JSON.parse(savedBalanceState);
-      setBalanceState(parsedBS);
-    }
-  }, []);
+  const token = authContext.state.token;
 
   const handleChange: React.ChangeEventHandler<HTMLInputElement> = (e) => {
     const receivedAmount = e.target.value;
@@ -39,68 +30,67 @@ const ReceivePage: React.FC = () => {
     setError("");
   };
 
-  const handleBalanceUpdate = (updatedBalanceValue: string) => {
+  const handleBalanceUpdate = async (updatedBalanceValue: string) => {
     authContext.dispatch({
       type: Authentication.UPDATE_BALANCE,
       payload: {
         balance: updatedBalanceValue,
       },
     });
+    try {
+      const res = await fetch(`http://localhost:4000/balance/${token}`);
+      if (res.ok) {
+        const data = await res.json();
+        setBalanceState({
+          balance: data.balance,
+          transactions: data.transactions,
+        });
+      } else {
+        console.error("Failed to fetch updated balance from the server");
+      }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
-  const handleSubmit = (method: string) => {
+  const handleSubmit = async (method: string) => {
     if (!method) {
       setError("Please select a payment method");
       return;
     }
 
-    if (!balanceState || !balanceState.notifications) {
-      console.error("balanceState or balanceState.notifications is undefined");
-      return;
-    }
-
     const numAmount = parseFloat(amount);
     if (!isNaN(numAmount)) {
-      const getBalance = parseFloat(balanceState.balance);
+      const token = authContext.state.token;
+      try {
+        if (token) {
+          const res = await fetch("http://localhost:4000/receive", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              token: token,
+              amount: numAmount.toFixed(2),
+              paymentMethod: method,
+            }),
+          });
 
-      const totalBalance = getBalance + numAmount;
+          if (res.ok) {
+            const data = await res.json();
+            const { balance, transactions } = data;
+            handleBalanceUpdate(balance);
 
-      const totalBalanceString = totalBalance.toFixed(2);
-
-      handleBalanceUpdate(totalBalanceString);
-
-      const currentDate = new Date();
-      const hours = currentDate.getHours();
-      const minutes = currentDate.getMinutes();
-      const currentTime = `${hours}:${minutes}`;
-
-      const receiptData: Notification = {
-        amount: numAmount.toFixed(2).toString(),
-        paymentMethod: method,
-        paymentTime: currentTime,
-        paymentDate: currentDate.toDateString(),
-        type: "Receipt",
-      };
-
-      const updatedBalanceState: BalanceState = {
-        balance: totalBalanceString,
-        notifications: [...balanceState.notifications, receiptData],
-      };
-
-      setBalanceState(updatedBalanceState);
-      localStorage.setItem(
-        `balanceState_${userId}`,
-        JSON.stringify(updatedBalanceState)
-      );
-
-      const getUser = localStorage.getItem("user");
-      const user = getUser ? JSON.parse(getUser) : null;
-      const token = user ? user.token : null;
-
-      saveNotification("Announcement", "Incoming transaction", token);
-
-      clearCode();
-      setAmount("0.00");
+            saveNotification("Announcement", "Incoming transaction", token);
+            clearCode();
+            setAmount("0.00");
+          } else {
+            console.error("Failed to update balance");
+          }
+        }
+      } catch (err) {
+        console.error(err);
+      }
     }
   };
 

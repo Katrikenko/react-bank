@@ -39,30 +39,8 @@ const SignupPage: React.FC = () => {
     setAlertVisible(isVisible);
   };
 
-  const userExist = (email: string, users: any[]) => {
-    return users.some((user) => user.email === email);
-  };
-
   const calculateIsFormValid = (errors: any) => {
     return Object.values(errors).every((error) => error === "");
-  };
-
-  const generateToken = () => {
-    const length = 6;
-    const characters =
-      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-    let result = "";
-
-    for (let i = 0; i < length; i++) {
-      const randomIndex = Math.floor(Math.random() * characters.length);
-      result += characters[randomIndex];
-    }
-
-    return result;
-  };
-
-  const generateConfirmCode = () => {
-    return Math.floor(Math.random() * 900000) + 100000;
   };
 
   const [isFormValid, setIsFormValid] = useState(false);
@@ -122,7 +100,7 @@ const SignupPage: React.FC = () => {
     setIsFormValid(newIsFormValid);
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLButtonElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLButtonElement>) => {
     e.preventDefault();
 
     const isFormValid = calculateIsFormValid(error);
@@ -131,40 +109,56 @@ const SignupPage: React.FC = () => {
       try {
         const { email, password } = formData;
 
-        const usersExistData = localStorage.getItem("users");
-        const existingUsers = usersExistData ? JSON.parse(usersExistData) : [];
-
-        if (userExist(email, existingUsers)) {
-          toggleAlert(true);
-          return;
-        }
-
-        const token = generateToken();
-
-        const confirmCode = generateConfirmCode();
-
-        const user = { email, password, token, confirmCode, confirm: false };
-
-        existingUsers.push(user);
-
-        localStorage.setItem("users", JSON.stringify(existingUsers));
-
-        authContext.dispatch({
-          type: Authentication.LOGIN,
-          payload: {
-            token: token,
-            user: {
-              confirm: false,
-              email: email,
-              password: password,
-              token: token,
-            },
+        const res = await fetch("http://localhost:4000/signup", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
           },
+          body: JSON.stringify({ email, password }),
         });
 
-        clearForm();
+        const data = await res.json();
 
-        navigate("/signup-confirm");
+        if (res.ok) {
+          const { user } = data;
+
+          const token = user.token;
+
+          const confirmCode = user.confirmCode;
+
+          authContext.dispatch({
+            type: Authentication.LOGIN,
+            payload: {
+              token: token,
+              user: {
+                ...user,
+                confirm: false,
+                email: email,
+                password: password,
+                token: token,
+                confirmCode: confirmCode,
+              },
+            },
+          });
+
+          const confirmData = {
+            email,
+            password,
+            confirmCode,
+          };
+
+          console.log("confirmData before", confirmData);
+
+          const confirmDataString = JSON.stringify(confirmData);
+          localStorage.setItem("confirmationData", confirmDataString);
+          console.log("confirmData after", confirmDataString);
+
+          localStorage.setItem("token", JSON.stringify(token));
+          clearForm();
+          navigate("/signup-confirm");
+        } else {
+          toggleAlert(true);
+        }
       } catch (err) {
         console.log(err);
       }

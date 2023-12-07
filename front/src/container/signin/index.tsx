@@ -15,7 +15,6 @@ const SigninPage: React.FC = () => {
 
   const navigate = useNavigate();
   const authContext = useContext(AuthContext);
-  const userId = authContext.state.token;
 
   const [user, setUser] = useState({
     email: "",
@@ -42,50 +41,45 @@ const SigninPage: React.FC = () => {
     });
   };
 
-  const handleSubmit = () => {
-    if (authContext) {
-      const savedData = localStorage.getItem("users");
-      if (savedData) {
-        const savedUsers = JSON.parse(savedData);
+  const handleSubmit = async () => {
+    try {
+      const res = await fetch("http://localhost:4000/signin", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(user),
+      });
 
-        const foundUser = savedUsers.find(
-          (savedUser: User) =>
-            authContext.state.user &&
-            savedUser.email === user.email &&
-            savedUser.password === user.password
-        );
+      const data = await res.json();
 
-        if (foundUser) {
-          const token = foundUser.token;
+      if (res.ok) {
+        const { token } = data;
 
-          authContext.dispatch({
-            type: Authentication.LOGIN,
-            payload: {
-              token: token,
-              user: {
-                confirm: foundUser.confirm,
-                email: foundUser.email,
-                password: foundUser.password,
-              },
+        authContext.dispatch({
+          type: Authentication.LOGIN,
+          payload: {
+            token: token,
+            user: {
+              confirm: data.confirm,
+              email: data.email,
+              password: data.password,
             },
-          });
+          },
+        });
 
-          saveNotification(
-            "Warning",
-            "New Login",
-            authContext.state.token || ""
-          );
-          alert("Login successful");
-          navigate("/balance");
-        } else {
-          setError({
-            password: "Incorrect password",
-            email: "Incorrect email",
-          });
-        }
+        saveNotification("Warning", "New Login", token);
+        alert("Login successful");
+        navigate("/balance");
       } else {
-        setError({ ...error, email: "User not found" });
+        setError({
+          password: "Incorrect password",
+          email: "Incorrect email",
+        });
+        console.error(data.message);
       }
+    } catch (err) {
+      console.error(err);
     }
   };
 
